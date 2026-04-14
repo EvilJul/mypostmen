@@ -1,0 +1,105 @@
+import type { RequestData, ResponseData } from './types'
+import { isTauriEnv } from './tauri-env'
+
+function buildHeaders(data: RequestData): Record<string, string> {
+  const headers: Record<string, string> = {}
+  for (const h of data.headers) {
+    if (h.enabled && h.key.trim()) {
+      headers[h.key.trim()] = h.value
+    }
+  }
+  return headers
+}
+
+function buildBody(data: RequestData): string | undefined {
+  if (['GET', 'HEAD'].includes(data.method)) return undefined
+  if (data.bodyType === 'form-data') {
+    // Tauri proxy doesn't support FormData binary — fall back to text entries as URL-encoded
+    const params = new URLSearchParams()
+    for (const entry of data.formDataEntries) {
+      if (entry.enabled && entry.key.trim() && entry.type === 'text') {
+        params.append(entry.key.trim(), entry.value)
+      }
+    }
+    return params.toString() || undefined
+  }
+  if (data.bodyType === 'raw' && data.body) return data.body
+  return undefined
+}
+
+async function sendViaTauri(data: RequestData): Promise<ResponseData> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  const headers = buildHeaders(data)
+  const body = buildBody(data)
+
+  const start = performance.now()
+  const res = await invoke<{
+    status: number
+    status_text: string
+    headers: Record<string, string>
+    body: string
+  }>('http_proxy', {
+    req: { method: data.method, url: data.url, headers, body },
+  })
+  const duration = Math.round(performance.now() - start)
+
+  return {
+    status: res.status,
+    statusText: res.status_text,
+    headers: res.headers,
+    body: res.body,
+    duration,
+    size: new Blob([res.body]).size,
+  }
+}
+
+async function sendViaProxy(data: RequestData, signal?: AbortSignal): Promise<ResponseData> {
+  const enabledHeaders = buildHeaders(data)
+
+  let requestBody: BodyInit | undefined = undefined
+  if (!['GET', 'HEAD'].includes(data.method)) {
+    if (data.bodyType === 'form-data') {
+      const fd = new FormData()
+      for (const entry of data.formDataEntries) {
+        if (!entry.enabled || !entry.key.trim()) continue
+        if (entry.type === 'file' && entry.file) {
+          fd.append(entry.key.trim(), entry.file, entry.file.name)
+        } else if (entry.type === 'text') {
+          fd.append(entry.key.trim(), entry.value)
+        }
+      }
+      requestBody = fd
+    } else if (data.bodyType === 'raw' && data.body) {
+      requestBody = data.body
+    }
+  }
+
+  const start = performance.now()
+  const res = await fetch('/api-proxy', {
+    method: data.method,
+    headers: { ...enabledHeaders, 'x-target-url': data.url },
+    body: requestBody,
+    signal,
+  })
+  const duration = Math.round(performance.now() - start)
+  const body = await res.text()
+
+  const headers: Record<string, string> = {}
+  res.headers.forEach((value, key) => { headers[key] = value })
+
+  return {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
+    body,
+    duration,
+    size: new Blob([body]).size,
+  }
+}
+
+export async function sendRequest(data: RequestData, signal?: AbortSignal): Promise<ResponseData> {
+  if (isTauriEnv()) {
+    return sendViaTauri(data)
+  }
+  return sendViaProxy(data, signal)
+}

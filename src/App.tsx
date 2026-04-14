@@ -1,121 +1,75 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { RequestEditor } from '@/components/RequestEditor'
+import { ResponseViewer } from '@/components/ResponseViewer'
+import { AIChatPanel } from '@/components/AIChatPanel'
+import { HistorySidebar } from '@/components/HistorySidebar'
+import { AIConfigModal } from '@/components/AIConfigModal'
+import { useState, useEffect } from 'react'
+import { PanelLeftClose, PanelLeftOpen, Sun, Moon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
-function App() {
-  const [count, setCount] = useState(0)
+function useTheme() {
+  const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark)
+    localStorage.setItem('theme', dark ? 'dark' : 'light')
+  }, [dark])
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+  return { dark, toggle: () => setDark((d) => !d) }
 }
 
-export default App
+export default function App() {
+  const [historyOpen, setHistoryOpen] = useState(true)
+  const theme = useTheme()
+
+  return (
+    <div className="flex flex-col h-screen bg-background">
+      {/* Top bar */}
+      <header className="flex items-center gap-3 px-4 h-12 border-b shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setHistoryOpen(!historyOpen)}
+        >
+          {historyOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+        </Button>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm">MyPostmen</span>
+          <span className="text-xs text-muted-foreground">AI-Native API 调试工具</span>
+        </div>
+        <div className="ml-auto flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={theme.toggle}>
+            {theme.dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+          <AIConfigModal />
+        </div>
+      </header>
+
+      {/* Main content */}
+      <div className="flex flex-1 min-h-0">
+        {/* History sidebar */}
+        {historyOpen && (
+          <aside className="w-[260px] shrink-0 border-r">
+            <HistorySidebar />
+          </aside>
+        )}
+
+        {/* Request editor */}
+        <div className="flex-1 min-w-0 border-r">
+          <RequestEditor />
+        </div>
+
+        {/* Response viewer */}
+        <div className="flex-1 min-w-0 border-r">
+          <ResponseViewer />
+        </div>
+
+        {/* AI chat panel */}
+        <div className="w-[320px] shrink-0">
+          <AIChatPanel />
+        </div>
+      </div>
+    </div>
+  )
+}

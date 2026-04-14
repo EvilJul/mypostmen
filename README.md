@@ -1,73 +1,67 @@
-# React + TypeScript + Vite
+# MyPostmen
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+轻量级 API 调试工具，支持桌面端（macOS / Windows / Linux）。
 
-Currently, two official plugins are available:
+## 截图
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+![screenshot](./docs/images/screenshot.png)
 
-## React Compiler
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 功能
 
-## Expanding the ESLint configuration
+- GET / POST / PUT / DELETE / PATCH 等 HTTP 方法
+- 请求头编辑、Raw Body、Form-Data
+- 响应查看：状态码、耗时、Headers、Body
+- 代码编辑器支持 JSON / XML / HTML 语法高亮
+- 内置智能助手，可对请求和响应进行分析（需自行配置后端）
+- 请求历史记录，本地持久化存储
+- 一键生成 cURL 命令
+- 深色 / 浅色主题
+- 跨平台桌面端，基于 Tauri 打包
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 技术栈
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- React 19 + TypeScript
+- Vite 8 + Tauri 2
+- Tailwind CSS 4 + shadcn/ui
+- Zustand
+- CodeMirror 6
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 快速开始
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+
+# 浏览器开发模式
+npm run dev
+
+# 桌面端开发模式
+npm run tauri:dev
+
+# 桌面端生产构建
+npm run tauri:build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+桌面端构建需要 Rust 环境，详见 [BUILD.md](./BUILD.md)。
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 配置智能助手
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+点击右上角设置图标，填入你的后端地址、密钥和模型名称。支持任意 OpenAI 兼容接口。配置保存在本地，不会上传。
+
+## 项目结构
+
 ```
+src/
+├── components/        # 界面组件
+│   ├── ui/            # 基础 UI 组件
+│   ├── RequestEditor  # 请求编辑器
+│   ├── ResponseViewer # 响应查看器
+│   ├── AIChatPanel    # 智能助手面板
+│   └── HistorySidebar # 历史记录
+├── stores/            # 状态管理
+└── lib/               # 工具函数（HTTP 客户端、cURL 生成等）
+```
+
+## License
+
+MIT

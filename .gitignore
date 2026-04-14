@@ -1,3 +1,10 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+
 # Logs
 logs
 *.log
@@ -7,18 +14,62 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Environment & secrets
+.env
+.env.*
 *.local
+!.env.example
 
-# Editor directories and files
+# API keys / credentials
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+*.jks
+*.keystore
+credentials.json
+service-account*.json
+*-credentials.json
+*secret*
+!src/**
+
+# Editor / IDE
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.code-workspace
+CLAUDE.md
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+._*
+
+# Tauri build artifacts
+src-tauri/target/
+src-tauri/gen/schemas
+
+# Debug
+*.dSYM/
+
+# Test coverage
+coverage/
+
+# Misc
+*.tgz
+*.zip
+*.tar.gz
+*.dmg
+*.msi
+*.exe
+*.AppImage
+*.deb
+*.rpm
