@@ -124,6 +124,134 @@
   --sidebar: oklch(0.205 0 0);
 }
 
+@layer utilities {
+  .writing-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+  }
+}
+
+/* ── Apple-style resize handle ── */
+.resize-handle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 8px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  transition: background-color 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  background: transparent;
+}
+.resize-handle:hover {
+  background: oklch(0.5 0 0 / 6%);
+}
+.resize-handle[data-active] {
+  background: oklch(0.5 0 0 / 10%);
+}
+.resize-handle-pill {
+  width: 3px;
+  height: 28px;
+  border-radius: 99px;
+  background: oklch(0.5 0 0 / 12%);
+  transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.resize-handle:hover .resize-handle-pill {
+  height: 40px;
+  background: oklch(0.5 0 0 / 25%);
+}
+.resize-handle[data-active] .resize-handle-pill {
+  height: 52px;
+  width: 4px;
+  background: oklch(0.5 0.05 250 / 50%);
+}
+.dark .resize-handle:hover {
+  background: oklch(0.8 0 0 / 6%);
+}
+.dark .resize-handle[data-active] {
+  background: oklch(0.8 0 0 / 10%);
+}
+.dark .resize-handle-pill {
+  background: oklch(0.8 0 0 / 12%);
+}
+.dark .resize-handle:hover .resize-handle-pill {
+  background: oklch(0.8 0 0 / 25%);
+}
+.dark .resize-handle[data-active] .resize-handle-pill {
+  background: oklch(0.7 0.05 250 / 55%);
+}
+
+/* ── AI drawer (floating overlay) ── */
+.ai-drawer {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  bottom: 8px;
+  width: 380px;
+  max-width: calc(100% - 16px);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow:
+    0 0 0 1px oklch(0 0 0 / 6%),
+    0 8px 40px -8px oklch(0 0 0 / 18%),
+    0 2px 12px -2px oklch(0 0 0 / 8%);
+  transform: translateX(calc(100% + 16px));
+  opacity: 0;
+  transition:
+    transform 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  pointer-events: none;
+  overflow: hidden;
+}
+.ai-drawer-open {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+.dark .ai-drawer {
+  box-shadow:
+    0 0 0 1px oklch(1 0 0 / 8%),
+    0 8px 40px -8px oklch(0 0 0 / 50%),
+    0 2px 12px -2px oklch(0 0 0 / 30%);
+}
+
+.ai-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* backdrop */
+.ai-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 39;
+  background: oklch(0 0 0 / 0%);
+  pointer-events: none;
+  transition: background 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.ai-drawer-backdrop-visible {
+  background: oklch(0 0 0 / 8%);
+  pointer-events: auto;
+}
+.dark .ai-drawer-backdrop-visible {
+  background: oklch(0 0 0 / 20%);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -14,7 +14,15 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Plus, Trash2, Send, Upload, FileText, Copy, Check, StopCircle } from 'lucide-react'
+import { Plus, Trash2, Send, Upload, FileText, Copy, Check, StopCircle, ClipboardPaste } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import type { BodyType, FormDataEntry, KeyValue } from '@/lib/types'
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
@@ -35,6 +43,80 @@ const BODY_TYPES: { value: BodyType; label: string }[] = [
   { value: 'form-data', label: 'Form Data' },
 ]
 
+/** Parse pasted JSON and fill request fields.
+ *  Supports two formats:
+ *  1. Full request spec: { method, url, headers, body }
+ *  2. Plain body JSON (e.g. OpenAI chat payload) — auto-sets POST + raw body
+ */
+function parseAndApply(
+  raw: string,
+  setters: {
+    setMethod: (v: string) => void
+    setUrl: (v: string) => void
+    setHeaders: (v: KeyValue[]) => void
+    setBody: (v: string) => void
+    setBodyType: (v: BodyType) => void
+  },
+): string | null {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return '无法解析 JSON，请检查格式'
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return 'JSON 必须是一个对象'
+  }
+
+  const obj = parsed as Record<string, unknown>
+
+  // Detect full request spec: must have "url" field
+  if (typeof obj.url === 'string') {
+    const method = (typeof obj.method === 'string' ? obj.method : 'POST').toUpperCase()
+    setters.setMethod(method)
+    setters.setUrl(obj.url)
+
+    // Headers
+    if (obj.headers && typeof obj.headers === 'object' && !Array.isArray(obj.headers)) {
+      const entries = Object.entries(obj.headers as Record<string, string>)
+      const kvs: KeyValue[] = entries.map(([key, value]) => ({
+        key,
+        value: String(value),
+        enabled: true,
+      }))
+      if (kvs.length === 0) kvs.push({ key: '', value: '', enabled: true })
+      setters.setHeaders(kvs)
+    }
+
+    // Body
+    if (obj.body !== undefined) {
+      const bodyStr = typeof obj.body === 'string' ? obj.body : JSON.stringify(obj.body, null, 2)
+      setters.setBody(bodyStr)
+      setters.setBodyType('raw')
+    }
+    return null
+  }
+
+  // Plain body JSON — treat as POST raw body
+  setters.setMethod('POST')
+  setters.setBody(JSON.stringify(obj, null, 2))
+  setters.setBodyType('raw')
+
+  // Auto-add Content-Type header if not already present
+  const store = useRequestStore.getState()
+  const hasContentType = store.headers.some(
+    (h) => h.key.toLowerCase() === 'content-type' && h.enabled,
+  )
+  if (!hasContentType) {
+    setters.setHeaders([
+      { key: 'Content-Type', value: 'application/json', enabled: true },
+      ...store.headers,
+    ])
+  }
+
+  return null
+}
+
 export function RequestEditor() {
   const {
     method, url, headers, body, bodyType, formDataEntries,
@@ -42,6 +124,22 @@ export function RequestEditor() {
     setResponse, setError, setLoading, loading, abortController, setAbortController,
   } = useRequestStore()
   const addEntry = useHistoryStore((s) => s.addEntry)
+
+  // Paste JSON dialog state
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [pasteText, setPasteText] = useState('')
+  const [pasteError, setPasteError] = useState<string | null>(null)
+
+  const handlePasteApply = () => {
+    const err = parseAndApply(pasteText, { setMethod, setUrl, setHeaders, setBody, setBodyType })
+    if (err) {
+      setPasteError(err)
+      return
+    }
+    setPasteOpen(false)
+    setPasteText('')
+    setPasteError(null)
+  }
 
   // --- Query Params bidirectional sync ---
   const isUpdatingFromParams = useRef(false)
@@ -204,6 +302,35 @@ export function RequestEditor() {
         <Button variant="outline" size="icon" onClick={handleCopyCurl} disabled={!url.trim()} title="Copy as cURL">
           {curlCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
         </Button>
+        <Dialog open={pasteOpen} onOpenChange={(open) => { setPasteOpen(open); if (!open) { setPasteText(''); setPasteError(null) } }}>
+          <DialogTrigger render={<Button variant="outline" size="icon" title="粘贴 JSON 请求" />}>
+              <ClipboardPaste className="h-4 w-4" />
+          </DialogTrigger>
+          <DialogContent className="!max-w-[480px]">
+            <DialogHeader>
+              <DialogTitle>粘贴 JSON 请求</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 overflow-hidden">
+              <p className="text-xs text-muted-foreground">
+                支持两种格式：直接粘贴请求体（自动设为 POST），或完整描述 {`{method, url, headers, body}`}
+              </p>
+              <textarea
+                className="w-full h-[220px] text-xs font-mono p-3 rounded-md border bg-muted/50 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder={`// 格式一：请求体 JSON（自动 POST + Raw Body）\n{"model": "gpt-4", "messages": [...]}\n\n// 格式二：完整请求\n{"method": "POST", "url": "https://...", "headers": {...}, "body": {...}}`}
+                value={pasteText}
+                onChange={(e) => { setPasteText(e.target.value); setPasteError(null) }}
+                autoFocus
+              />
+              {pasteError && (
+                <p className="text-xs text-destructive">{pasteError}</p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPasteOpen(false)}>取消</Button>
+              <Button onClick={handlePasteApply} disabled={!pasteText.trim()}>应用</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Tabs: Params / Headers / Body */}

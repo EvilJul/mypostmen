@@ -2,13 +2,12 @@ import { useRef, useEffect, useState, Component, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import 'highlight.js/styles/github-dark.css'
-import { MessageSquare, Settings, Trash2, StopCircle, Send } from 'lucide-react'
+import { MessageSquare, Trash2, StopCircle, Send } from 'lucide-react'
 import { useAIStore } from '@/stores/ai-store'
 import { streamToStore } from '@/lib/stream-to-store'
-import { AIConfigModal } from '@/components/AIConfigModal'
 import { Button } from '@/components/ui/button'
 
-export function AIChatPanel() {
+export function AIChatPanel({ hideHeader = false }: { hideHeader?: boolean }) {
   const { config, messages, streaming, streamingContent, error, clearChat, abortController, contextMessages, addMessage } = useAIStore()
   const hasConfig = config.baseUrl && config.apiKey
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -58,42 +57,39 @@ export function AIChatPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-4 w-4" />
-          <span className="text-sm font-medium">AI 助手</span>
-        </div>
-        <div className="flex items-center gap-1">
-          {hasMessages && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearChat} title="清空对话">
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          <AIConfigModal
-            trigger={
-              <Button variant="ghost" size="icon" className="h-7 w-7">
-                <Settings className="h-3.5 w-3.5" />
+      {/* Header — hidden when parent provides its own */}
+      {!hideHeader && (
+        <div className="flex items-center justify-between p-3 border-b">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            <span className="text-sm font-medium truncate">AI 助手</span>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            {hasMessages && (
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearChat} title="清空对话">
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
-            }
-          />
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Inline clear button when header is hidden */}
+      {hideHeader && hasMessages && (
+        <div className="flex justify-end px-3 pt-2">
+          <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground" onClick={clearChat}>
+            <Trash2 className="h-3 w-3 mr-1" />
+            清空
+          </Button>
+        </div>
+      )}
 
       {/* Chat body */}
       <div className="flex-1 overflow-auto">
         {!hasConfig ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center text-muted-foreground">
-            <Settings className="h-8 w-8 opacity-40" />
-            <span className="text-sm">请先配置 AI 服务</span>
-            <AIConfigModal
-              trigger={
-                <Button variant="outline" size="sm">
-                  <Settings className="h-3.5 w-3.5 mr-1.5" />
-                  配置 AI
-                </Button>
-              }
-            />
+          <div className="flex flex-col items-center justify-center h-full gap-2 px-6 text-center text-muted-foreground">
+            <MessageSquare className="h-8 w-8 opacity-40" />
+            <span className="text-sm">请先在右上角配置 AI 服务</span>
           </div>
         ) : !hasMessages ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center text-muted-foreground">
@@ -173,7 +169,7 @@ function ChatBubble({
 
   return (
     <div className="flex justify-start">
-      <div className="bg-muted rounded-lg rounded-tl-sm px-3 py-2 text-xs max-w-[90%] break-words prose prose-xs prose-neutral dark:prose-invert [&_pre]:bg-background/50 [&_pre]:rounded [&_pre]:p-2 [&_pre]:text-[11px] [&_code]:text-[11px] [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0">
+      <div className="bg-muted rounded-lg rounded-tl-sm px-3 py-2 text-xs max-w-[90%] min-w-0 break-words overflow-hidden prose prose-xs prose-neutral dark:prose-invert [&_pre]:bg-background/50 [&_pre]:rounded [&_pre]:p-2 [&_pre]:text-[11px] [&_pre]:overflow-x-auto [&_code]:text-[11px] [&_code]:break-all [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0">
         <MarkdownErrorBoundary fallback={content} resetKey={content.length}>
           <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
             {content}
