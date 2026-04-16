@@ -76,13 +76,37 @@ async function sendViaProxy(data: RequestData, signal?: AbortSignal): Promise<Re
 
   const start = performance.now()
   const res = await fetch('/api-proxy', {
-    method: data.method,
+    method: data.method || 'GET',
     headers: { ...enabledHeaders, 'x-target-url': data.url },
     body: requestBody,
     signal,
   })
   const duration = Math.round(performance.now() - start)
   const body = await res.text()
+
+  // Detect proxy-generated errors (not from the target server)
+  if (res.headers.get('x-proxy-error')) {
+    let message = `请求失败 (${res.status})`
+    try {
+      const parsed = JSON.parse(body)
+      if (parsed.error) {
+        if (/timeout|timed?\s*out/i.test(parsed.error)) {
+          message = '请求超时：目标服务器在 30 秒内未响应'
+        } else if (/ECONNREFUSED/i.test(parsed.error)) {
+          message = '连接被拒绝：目标服务器未启动或端口不正确'
+        } else if (/ENOTFOUND/i.test(parsed.error)) {
+          message = '域名解析失败：请检查 URL 是否正确'
+        } else if (/ECONNRESET/i.test(parsed.error)) {
+          message = '连接被重置：目标服务器意外断开了连接'
+        } else if (/certificate|ssl|tls/i.test(parsed.error)) {
+          message = 'SSL/TLS 证书错误：目标服务器证书无效'
+        } else {
+          message = `请求失败：${parsed.error}`
+        }
+      }
+    } catch { /* use default message */ }
+    throw new Error(message)
+  }
 
   const headers: Record<string, string> = {}
   res.headers.forEach((value, key) => { headers[key] = value })

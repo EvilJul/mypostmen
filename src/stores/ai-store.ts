@@ -17,6 +17,7 @@ interface AIState {
   streamingContent: string
   error: string | null
   abortController: AbortController | null
+  drawerOpen: boolean
 
   setConfig: (config: Partial<AIConfig>) => void
   setContextMessages: (msgs: ChatMessage[]) => void
@@ -25,6 +26,7 @@ interface AIState {
   setStreamingContent: (content: string) => void
   setError: (error: string | null) => void
   setAbortController: (controller: AbortController | null) => void
+  setDrawerOpen: (open: boolean) => void
   clearChat: () => void
 }
 
@@ -40,6 +42,7 @@ export const useAIStore = create<AIState>((set) => ({
   streamingContent: '',
   error: null,
   abortController: null,
+  drawerOpen: false,
 
   setConfig: (partial) =>
     set((state) => {
@@ -55,5 +58,6 @@ export const useAIStore = create<AIState>((set) => ({
   setStreamingContent: (streamingContent) => set({ streamingContent }),
   setError: (error) => set({ error }),
   setAbortController: (abortController) => set({ abortController }),
+  setDrawerOpen: (drawerOpen) => set({ drawerOpen }),
   clearChat: () => set({ messages: [], contextMessages: [], streamingContent: '', error: null }),
 }))

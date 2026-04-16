@@ -11,7 +11,7 @@ function proxyMiddleware(): Plugin {
       server.middlewares.use('/api-proxy', async (req, res) => {
         const targetUrl = req.headers['x-target-url'] as string
         if (!targetUrl) {
-          res.writeHead(400, { 'Content-Type': 'application/json' })
+          res.writeHead(400, { 'Content-Type': 'application/json', 'x-proxy-error': 'true' })
           res.end(JSON.stringify({ error: 'Missing x-target-url header' }))
           return
         }
@@ -24,7 +24,7 @@ function proxyMiddleware(): Plugin {
             throw new Error('Invalid protocol')
           }
         } catch {
-          res.writeHead(400, { 'Content-Type': 'application/json' })
+          res.writeHead(400, { 'Content-Type': 'application/json', 'x-proxy-error': 'true' })
           res.end(JSON.stringify({ error: 'Invalid target URL' }))
           return
         }
@@ -90,11 +90,11 @@ function proxyMiddleware(): Plugin {
         } catch (err: unknown) {
           clearTimeout(timeout)
           if (err instanceof Error && err.name === 'AbortError') {
-            res.writeHead(504, { 'Content-Type': 'application/json' })
+            res.writeHead(504, { 'Content-Type': 'application/json', 'x-proxy-error': 'true' })
             res.end(JSON.stringify({ error: 'Gateway Timeout: target server did not respond within 30s' }))
           } else {
             const message = err instanceof Error ? err.message : 'Unknown error'
-            res.writeHead(502, { 'Content-Type': 'application/json' })
+            res.writeHead(502, { 'Content-Type': 'application/json', 'x-proxy-error': 'true' })
             res.end(JSON.stringify({ error: `Bad Gateway: ${message}` }))
           }
         }

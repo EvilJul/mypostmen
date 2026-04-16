@@ -9,20 +9,31 @@ import { Button } from '@/components/ui/button'
 
 export function AIChatPanel({ hideHeader = false }: { hideHeader?: boolean }) {
   const { config, messages, streaming, streamingContent, error, clearChat, abortController, contextMessages, addMessage } = useAIStore()
+  const drawerOpen = useAIStore((s) => s.drawerOpen)
   const hasConfig = config.baseUrl && config.apiKey
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [input, setInput] = useState('')
 
   const hasMessages = messages.length > 0 || streaming
 
+  const scrollToBottom = (instant?: boolean) => {
+    const el = scrollRef.current
+    if (!el || !drawerOpen) return
+    if (instant) {
+      el.scrollTop = el.scrollHeight
+    } else {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
+  }
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.length, streaming])
+    scrollToBottom()
+  }, [messages.length, streaming, drawerOpen])
 
   // Lighter scroll for streaming content — just keep pinned to bottom
   useEffect(() => {
     if (streaming) {
-      bottomRef.current?.scrollIntoView({ behavior: 'instant' })
+      scrollToBottom(true)
     }
   }, [streamingContent, streaming])
 
@@ -85,7 +96,7 @@ export function AIChatPanel({ hideHeader = false }: { hideHeader?: boolean }) {
       )}
 
       {/* Chat body */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto" ref={scrollRef}>
         {!hasConfig ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 px-6 text-center text-muted-foreground">
             <MessageSquare className="h-8 w-8 opacity-40" />
@@ -109,7 +120,7 @@ export function AIChatPanel({ hideHeader = false }: { hideHeader?: boolean }) {
                 {error}
               </div>
             )}
-            <div ref={bottomRef} />
+            <div />
           </div>
         )}
       </div>

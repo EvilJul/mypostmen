@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react'
 import { PanelLeftClose, PanelLeftOpen, Sun, Moon, BotMessageSquare, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Group, Panel, Separator } from 'react-resizable-panels'
+import { useAIStore } from '@/stores/ai-store'
 
 function useTheme() {
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
@@ -29,7 +30,8 @@ function ResizeHandle() {
 
 export default function App() {
   const [historyOpen, setHistoryOpen] = useState(true)
-  const [aiOpen, setAiOpen] = useState(false)
+  const aiOpen = useAIStore((s) => s.drawerOpen)
+  const setAiOpen = useAIStore((s) => s.setDrawerOpen)
   const theme = useTheme()
 
   return (
@@ -67,7 +69,7 @@ export default function App() {
       </header>
 
       {/* Main content — relative so AI drawer overlays on top */}
-      <div className="relative flex flex-1 min-h-0">
+      <div className="relative flex flex-1 min-h-0 overflow-hidden">
         {/* History sidebar */}
         {historyOpen && (
           <aside className="w-[260px] shrink-0 border-r">

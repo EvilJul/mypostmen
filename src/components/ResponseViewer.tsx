@@ -65,7 +65,8 @@ export function ResponseViewer() {
     store.setContextMessages(promptMessages)
     store.addMessage({ role: 'user', content: `分析请求: ${method} ${url}` })
 
-    // Stream with full context
+    // Open the AI drawer and stream
+    store.setDrawerOpen(true)
     await streamToStore(promptMessages)
   }
 
