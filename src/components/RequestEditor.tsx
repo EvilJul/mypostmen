@@ -2,7 +2,7 @@ import { useRef, useCallback, useState } from 'react'
 import { useRequestStore } from '@/stores/request-store'
 import { useHistoryStore } from '@/stores/history-store'
 import { sendRequest } from '@/lib/http-client'
-import { buildCurlCommand } from '@/lib/curl-builder'
+import { buildCurlCommand, parseCurlCommand } from '@/lib/curl-builder'
 import { CodeEditor } from '@/components/CodeEditor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -129,12 +129,28 @@ export function RequestEditor() {
   const [pasteOpen, setPasteOpen] = useState(false)
   const [pasteText, setPasteText] = useState('')
   const [pasteError, setPasteError] = useState<string | null>(null)
+  const [pasteMode, setPasteMode] = useState<'json' | 'curl'>('curl')
 
   const handlePasteApply = () => {
-    const err = parseAndApply(pasteText, { setMethod, setUrl, setHeaders, setBody, setBodyType })
-    if (err) {
-      setPasteError(err)
-      return
+    if (pasteMode === 'curl') {
+      // Parse curl command
+      const parsed = parseCurlCommand(pasteText)
+      if (!parsed) {
+        setPasteError('无法解析 Curl 命令，请检查格式')
+        return
+      }
+      setMethod(parsed.method)
+      setUrl(parsed.url)
+      setHeaders(parsed.headers)
+      setBody(parsed.body)
+      setBodyType(parsed.bodyType)
+    } else {
+      // Parse JSON (existing logic)
+      const err = parseAndApply(pasteText, { setMethod, setUrl, setHeaders, setBody, setBodyType })
+      if (err) {
+        setPasteError(err)
+        return
+      }
     }
     setPasteOpen(false)
     setPasteText('')
@@ -303,20 +319,43 @@ export function RequestEditor() {
           {curlCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
         </Button>
         <Dialog open={pasteOpen} onOpenChange={(open) => { setPasteOpen(open); if (!open) { setPasteText(''); setPasteError(null) } }}>
-          <DialogTrigger render={<Button variant="outline" size="icon" title="粘贴 JSON 请求" />}>
+          <DialogTrigger render={<Button variant="outline" size="icon" title="导入请求 (Curl/JSON)" />}>
               <ClipboardPaste className="h-4 w-4" />
           </DialogTrigger>
-          <DialogContent className="!max-w-[480px]">
+          <DialogContent className="!max-w-[520px]">
             <DialogHeader>
-              <DialogTitle>粘贴 JSON 请求</DialogTitle>
+              <DialogTitle>导入请求</DialogTitle>
             </DialogHeader>
-            <div className="space-y-2 overflow-hidden">
+            <div className="space-y-3 overflow-hidden">
+              {/* Mode toggle */}
+              <div className="flex gap-1">
+                <Button
+                  variant={pasteMode === 'curl' ? 'default' : 'outline'}
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => { setPasteMode('curl'); setPasteError(null) }}
+                >
+                  Curl 命令
+                </Button>
+                <Button
+                  variant={pasteMode === 'json' ? 'default' : 'outline'}
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => { setPasteMode('json'); setPasteError(null) }}
+                >
+                  JSON
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
-                支持两种格式：直接粘贴请求体（自动设为 POST），或完整描述 {`{method, url, headers, body}`}
+                {pasteMode === 'curl'
+                  ? '粘贴 Curl 命令，自动解析 URL、Method、Headers、Body'
+                  : '支持两种格式：直接粘贴请求体（自动设为 POST），或完整描述 {method, url, headers, body}'}
               </p>
               <textarea
-                className="w-full h-[220px] text-xs font-mono p-3 rounded-md border bg-muted/50 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                placeholder={`// 格式一：请求体 JSON（自动 POST + Raw Body）\n{"model": "gpt-4", "messages": [...]}\n\n// 格式二：完整请求\n{"method": "POST", "url": "https://...", "headers": {...}, "body": {...}}`}
+                className="w-full h-[200px] text-xs font-mono p-3 rounded-md border bg-muted/50 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder={pasteMode === 'curl'
+                  ? `curl 'http://api.example.com/v1/chat' \\\n  -H 'Content-Type: application/json' \\\n  -d '{"model": "gpt-4", "messages": [...]}'`
+                  : `// 格式一：请求体 JSON（自动 POST + Raw Body）\n{"model": "gpt-4", "messages": [...]}\n\n// 格式二：完整请求\n{"method": "POST", "url": "https://...", "headers": {...}, "body": {...}}`}
                 value={pasteText}
                 onChange={(e) => { setPasteText(e.target.value); setPasteError(null) }}
                 autoFocus
@@ -327,7 +366,7 @@ export function RequestEditor() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setPasteOpen(false)}>取消</Button>
-              <Button onClick={handlePasteApply} disabled={!pasteText.trim()}>应用</Button>
+              <Button onClick={handlePasteApply} disabled={!pasteText.trim()}>解析并应用</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
