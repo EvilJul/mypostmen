@@ -75,12 +75,25 @@ async function sendViaProxy(data: RequestData, signal?: AbortSignal): Promise<Re
   }
 
   const start = performance.now()
-  const res = await fetch('/api-proxy', {
-    method: data.method || 'GET',
-    headers: { ...enabledHeaders, 'x-target-url': data.url },
-    body: requestBody,
-    signal,
-  })
+  let res: Response
+  try {
+    res = await fetch('/api-proxy', {
+      method: data.method || 'GET',
+      headers: { ...enabledHeaders, 'x-target-url': data.url },
+      body: requestBody,
+      signal,
+    })
+  } catch (err) {
+    // Network-level errors (CORS, offline, etc.)
+    if (err instanceof Error) {
+      if (err.name === 'AbortError') {
+        throw err
+      }
+      throw new Error(`网络错误：${err.message}`)
+    }
+    throw new Error('网络错误：无法连接到代理服务器')
+  }
+
   const duration = Math.round(performance.now() - start)
   const body = await res.text()
 

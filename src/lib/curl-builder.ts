@@ -101,11 +101,14 @@ export function parseCurlCommand(curl: string): {
       continue
     }
 
-    // URL: first token that looks like a URL (starts with http or is not a flag)
+    // URL: first token that is not a flag
     if (!token.startsWith('-') && !result.url) {
-      // Check if it looks like a URL
-      if (token.startsWith('http://') || token.startsWith('https://') || token.includes('.')) {
+      // Accept as URL if it looks like one
+      if (token.startsWith('http://') || token.startsWith('https://')) {
         result.url = token
+      } else if (token.includes('/') || token.includes('.')) {
+        // Likely a URL without protocol - add http://
+        result.url = token.startsWith('//') ? `http:${token}` : `http://${token}`
       }
     }
   }

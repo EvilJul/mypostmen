@@ -1,13 +1,33 @@
-import { useState } from 'react'
+import { useState, useMemo, Component, type ReactNode, type ErrorInfo } from 'react'
 import { useRequestStore } from '@/stores/request-store'
 import { useAIStore } from '@/stores/ai-store'
 import { buildAnalysisContext, buildAnalyzePrompt } from '@/lib/context-engine'
 import { streamToStore } from '@/lib/stream-to-store'
 import { CodeEditor } from '@/components/CodeEditor'
+import { JsonTreeViewer } from '@/components/JsonTreeViewer'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Clock, FileText, AlertCircle, Sparkles, Loader2, Copy, Check, Download } from 'lucide-react'
+import { Clock, FileText, AlertCircle, Sparkles, Loader2, Copy, Check, Download, Braces, Code2 } from 'lucide-react'
+
+// Error boundary to catch rendering errors
+class ResponseErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  state = { hasError: false, error: undefined }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback
+    }
+    return this.props.children
+  }
+}
 
 function statusColor(status: number): string {
   if (status >= 200 && status < 300) return 'bg-green-500/15 text-green-700 border-green-500/30'
@@ -52,6 +72,22 @@ export function ResponseViewer() {
   const streaming = useAIStore((s) => s.streaming)
   const hasAIConfig = config.baseUrl && config.apiKey
   const [copied, setCopied] = useState(false)
+  const [viewMode, setViewMode] = useState<'raw' | 'tree'>('tree')
+
+  // All hooks must be called before any conditional returns
+  const contentType = response?.headers['content-type'] || ''
+  const binary = isBinaryContentType(contentType)
+  const isJson = contentType.includes('json')
+  
+  // Parse JSON for tree view - must be before conditional returns
+  const parsedJson = useMemo(() => {
+    if (!response || !isJson || viewMode !== 'tree') return null
+    try {
+      return JSON.parse(response.body)
+    } catch {
+      return null
+    }
+  }, [response, isJson, viewMode])
 
   const handleAnalyze = async () => {
     if (!response || !hasAIConfig) return
@@ -70,6 +106,26 @@ export function ResponseViewer() {
     await streamToStore(promptMessages)
   }
 
+  const handleCopyBody = async () => {
+    if (!response) return
+    await navigator.clipboard.writeText(response.body)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleDownload = () => {
+    if (!response) return
+    const ext = extFromContentType(contentType)
+    const blob = new Blob([response.body], { type: contentType || 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `response-${Date.now()}.${ext}`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // Conditional returns AFTER all hooks
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -84,9 +140,12 @@ export function ResponseViewer() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-full text-destructive">
-        <div className="flex flex-col items-center gap-3 px-6 text-center">
-          <AlertCircle className="h-8 w-8" />
-          <span className="text-sm">{error}</span>
+        <div className="flex flex-col items-center gap-3 px-6 text-center max-w-md">
+          <AlertCircle className="h-8 w-8 shrink-0" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium">请求失败</p>
+            <p className="text-xs text-muted-foreground break-all">{error}</p>
+          </div>
         </div>
       </div>
     )
@@ -103,107 +162,132 @@ export function ResponseViewer() {
     )
   }
 
-  const contentType = response.headers['content-type'] || ''
-  const binary = isBinaryContentType(contentType)
-
-  const handleCopyBody = async () => {
-    await navigator.clipboard.writeText(response.body)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const handleDownload = () => {
-    const ext = extFromContentType(contentType)
-    const blob = new Blob([response.body], { type: contentType || 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `response-${Date.now()}.${ext}`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   return (
-    <div className="flex flex-col h-full">
-      {/* Status bar */}
-      <div className="flex items-center gap-3 p-3 border-b">
-        <Badge variant="outline" className={statusColor(response.status)}>
-          {response.status} {response.statusText}
-        </Badge>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          {response.duration}ms
+    <ResponseErrorBoundary
+      fallback={
+        <div className="flex items-center justify-center h-full text-destructive">
+          <div className="flex flex-col items-center gap-3 px-6 text-center max-w-md">
+            <AlertCircle className="h-8 w-8 shrink-0" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium">渲染错误</p>
+              <p className="text-xs text-muted-foreground">响应内容无法正确显示，请尝试切换到原始视图</p>
+            </div>
+          </div>
         </div>
-        <div className="text-xs text-muted-foreground">
-          {formatSize(response.size)}
-        </div>
-        {hasAIConfig && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto text-xs"
-            onClick={handleAnalyze}
-            disabled={streaming}
-          >
-            {streaming
-              ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />分析中...</>
-              : <><Sparkles className="h-3.5 w-3.5 mr-1" />AI分析</>
-            }
-          </Button>
-        )}
-      </div>
-
-      {/* Tabs: Body / Headers */}
-      <Tabs defaultValue="body" className="flex-1 flex flex-col min-h-0">
-        <TabsList className="mx-3 mt-2 w-fit">
-          <TabsTrigger value="body">Body</TabsTrigger>
-          <TabsTrigger value="headers">
-            Headers
-            <span className="ml-1.5 text-xs text-muted-foreground">
-              ({Object.keys(response.headers).length})
-            </span>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="body" className="flex-1 min-h-0 px-3 pb-3 flex flex-col gap-2">
-          <div className="flex gap-1 justify-end">
-            {!binary && (
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleCopyBody}>
-                {copied ? <Check className="h-3 w-3 mr-1 text-green-600" /> : <Copy className="h-3 w-3 mr-1" />}
-                {copied ? '已复制' : '复制'}
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleDownload}>
-              <Download className="h-3 w-3 mr-1" />
-              下载
+      }
+    >
+      <div className="flex flex-col h-full">
+        {/* Status bar */}
+        <div className="flex items-center gap-3 p-3 border-b">
+          <Badge variant="outline" className={statusColor(response.status)}>
+            {response.status} {response.statusText}
+          </Badge>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            {response.duration}ms
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {formatSize(response.size)}
+          </div>
+          {hasAIConfig && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto text-xs"
+              onClick={handleAnalyze}
+              disabled={streaming}
+            >
+              {streaming
+                ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />分析中...</>
+                : <><Sparkles className="h-3.5 w-3.5 mr-1" />AI分析</>
+              }
             </Button>
-          </div>
-          <CodeEditor
-            value={formatBody(response.body, contentType)}
-            readOnly
-            className="w-full flex-1"
-          />
-        </TabsContent>
+          )}
+        </div>
 
-        <TabsContent value="headers" className="flex-1 overflow-auto px-3 pb-3">
-          <div className="rounded-md border overflow-hidden">
-            <table className="w-full text-sm">
-              <tbody>
-                {Object.entries(response.headers).map(([key, value]) => (
-                  <tr key={key} className="border-b last:border-b-0">
-                    <td className="px-3 py-1.5 font-mono text-xs font-medium bg-muted/50 w-[200px] align-top">
-                      {key}
-                    </td>
-                    <td className="px-3 py-1.5 font-mono text-xs break-all">
-                      {value}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
+        {/* Tabs: Body / Headers */}
+        <Tabs defaultValue="body" className="flex-1 flex flex-col min-h-0">
+          <TabsList className="mx-3 mt-2 w-fit">
+            <TabsTrigger value="body">Body</TabsTrigger>
+            <TabsTrigger value="headers">
+              Headers
+              <span className="ml-1.5 text-xs text-muted-foreground">
+                ({Object.keys(response.headers).length})
+              </span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="body" className="flex-1 min-h-0 px-3 pb-3 flex flex-col gap-2">
+            <div className="flex gap-1 justify-between">
+              {/* View mode toggle for JSON */}
+              {isJson && (
+                <div className="flex gap-1">
+                  <Button
+                    variant={viewMode === 'tree' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setViewMode('tree')}
+                  >
+                    <Braces className="h-3 w-3 mr-1" />
+                    树状
+                  </Button>
+                  <Button
+                    variant={viewMode === 'raw' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setViewMode('raw')}
+                  >
+                    <Code2 className="h-3 w-3 mr-1" />
+                    原始
+                  </Button>
+                </div>
+              )}
+              <div className="flex gap-1 ml-auto">
+                {!binary && (
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleCopyBody}>
+                    {copied ? <Check className="h-3 w-3 mr-1 text-green-600" /> : <Copy className="h-3 w-3 mr-1" />}
+                    {copied ? '已复制' : '复制'}
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleDownload}>
+                  <Download className="h-3 w-3 mr-1" />
+                  下载
+                </Button>
+              </div>
+            </div>
+            {viewMode === 'tree' && parsedJson ? (
+              <div className="flex-1 overflow-auto rounded-md border bg-muted/30">
+                <JsonTreeViewer data={parsedJson} expandDepth={3} />
+              </div>
+            ) : (
+              <CodeEditor
+                value={formatBody(response.body, contentType)}
+                readOnly
+                className="w-full flex-1"
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="headers" className="flex-1 overflow-auto px-3 pb-3">
+            <div className="rounded-md border overflow-hidden">
+              <table className="w-full text-sm">
+                <tbody>
+                  {Object.entries(response.headers).map(([key, value]) => (
+                    <tr key={key} className="border-b last:border-b-0">
+                      <td className="px-3 py-1.5 font-mono text-xs font-medium bg-muted/50 w-[200px] align-top">
+                        {key}
+                      </td>
+                      <td className="px-3 py-1.5 font-mono text-xs break-all">
+                        {value}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </ResponseErrorBoundary>
   )
 }

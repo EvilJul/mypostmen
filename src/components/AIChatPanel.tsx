@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, Component, type ReactNode } from 'react'
+import { useRef, useEffect, useState, useMemo, Component, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import 'highlight.js/styles/github-dark.css'
@@ -178,14 +178,19 @@ function ChatBubble({
     )
   }
 
+  // Memoize markdown rendering to avoid re-parsing on every character
+  const markdownContent = useMemo(() => (
+    <MarkdownErrorBoundary fallback={content} resetKey={isStreaming ? 0 : content.length}>
+      <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
+        {content}
+      </ReactMarkdown>
+    </MarkdownErrorBoundary>
+  ), [content, isStreaming])
+
   return (
     <div className="flex justify-start">
       <div className="bg-muted rounded-lg rounded-tl-sm px-3 py-2 text-xs max-w-[90%] min-w-0 break-words overflow-hidden prose prose-xs prose-neutral dark:prose-invert [&_pre]:bg-background/50 [&_pre]:rounded [&_pre]:p-2 [&_pre]:text-[11px] [&_pre]:overflow-x-auto [&_code]:text-[11px] [&_code]:break-all [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0">
-        <MarkdownErrorBoundary fallback={content} resetKey={content.length}>
-          <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
-            {content}
-          </ReactMarkdown>
-        </MarkdownErrorBoundary>
+        {markdownContent}
         {isStreaming && <span className="inline-block w-1.5 h-3.5 bg-foreground/60 ml-0.5 animate-pulse" />}
       </div>
     </div>
