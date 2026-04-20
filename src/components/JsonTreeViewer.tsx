@@ -1,4 +1,4 @@
-import { useState, useMemo, Component, type ReactNode, type ErrorInfo } from 'react'
+import { useState, useMemo, Component, type ReactNode } from 'react'
 import { ChevronRight, ChevronDown, Braces, Brackets } from 'lucide-react'
 
 interface JsonTreeViewerProps {
@@ -68,7 +68,7 @@ function JsonValue({
   if (type === 'object' || type === 'array') {
     const entries = Array.isArray(value) 
       ? value.map((v, i) => [i, v] as [number, unknown])
-      : Object.entries(value)
+      : Object.entries(value as Record<string, unknown>)
     
     const isEmpty = entries.length === 0
     const length = entries.length

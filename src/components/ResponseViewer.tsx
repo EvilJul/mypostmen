@@ -1,4 +1,4 @@
-import { useState, useMemo, Component, type ReactNode, type ErrorInfo } from 'react'
+import { useState, useMemo, Component, type ReactNode } from 'react'
 import { useRequestStore } from '@/stores/request-store'
 import { useAIStore } from '@/stores/ai-store'
 import { buildAnalysisContext, buildAnalyzePrompt } from '@/lib/context-engine'
