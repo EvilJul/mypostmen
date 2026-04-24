@@ -61,9 +61,15 @@ async fn http_proxy(req: HttpRequest) -> Result<HttpResponse, String> {
 
                 let file_name = entry.file_name.unwrap_or_else(|| "file".to_string());
 
-                // 创建 multipart part
+                // 根据文件名推断 MIME 类型
+                let mime_type = mime_guess::from_path(&file_name)
+                    .first_or_octet_stream();
+
+                // 创建 multipart part，设置正确的 MIME 类型
                 let part = reqwest::multipart::Part::bytes(file_data)
-                    .file_name(file_name);
+                    .file_name(file_name)
+                    .mime_str(mime_type.as_ref())
+                    .map_err(|e| format!("设置 MIME 类型失败: {}", e))?;
 
                 form = form.part(entry.key, part);
             } else {

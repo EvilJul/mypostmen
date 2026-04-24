@@ -2120,6 +2120,7 @@ version = "0.2.2"
 dependencies = [
  "base64 0.22.1",
  "log",
+ "mime_guess",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
