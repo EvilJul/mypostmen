@@ -10,16 +10,14 @@ export function parseCurlCommand(curl: string): {
   headers: KeyValue[]
   body: string
   bodyType: BodyType
+  formDataEntries: FormDataEntry[]
 } | null {
   if (!curl.trim().toLowerCase().startsWith('curl')) {
     return null
   }
 
-  // Normalize: remove line continuations (\ at end of line)
-  let normalized = curl
-    .replace(/\\\s*\n/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+  // Normalize: remove line continuations (\ at end of line) but preserve other whitespace
+  let normalized = curl.replace(/\\\s*\n/g, ' ').trim()
 
   const result = {
     method: 'GET',
@@ -27,9 +25,10 @@ export function parseCurlCommand(curl: string): {
     headers: [] as KeyValue[],
     body: '',
     bodyType: 'none' as BodyType,
+    formDataEntries: [] as FormDataEntry[],
   }
 
-  // Tokenize: handle both single and double quotes
+  // Tokenize: handle both single and double quotes, preserve content inside quotes
   const tokens: string[] = []
   let current = ''
   let inSingleQuote = false
@@ -39,10 +38,20 @@ export function parseCurlCommand(curl: string): {
     const char = normalized[i]
 
     if (char === "'" && !inDoubleQuote) {
+      if (inSingleQuote) {
+        // Closing quote - push the accumulated content
+        tokens.push(current)
+        current = ''
+      }
       inSingleQuote = !inSingleQuote
       continue
     }
     if (char === '"' && !inSingleQuote) {
+      if (inDoubleQuote) {
+        // Closing quote - push the accumulated content
+        tokens.push(current)
+        current = ''
+      }
       inDoubleQuote = !inDoubleQuote
       continue
     }
@@ -101,6 +110,46 @@ export function parseCurlCommand(curl: string): {
       continue
     }
 
+    // Form data: -F, --form
+    if (token === '-F' || token === '--form') {
+      const next = tokens[++i]
+      if (next) {
+        result.bodyType = 'form-data'
+        // Auto-set POST if method is still GET
+        if (result.method === 'GET') {
+          result.method = 'POST'
+        }
+
+        // Parse form field: key=value or key=@filename
+        const eqIndex = next.indexOf('=')
+        if (eqIndex > 0) {
+          const key = next.slice(0, eqIndex).trim()
+          const value = next.slice(eqIndex + 1).trim()
+
+          if (value.startsWith('@')) {
+            // File upload
+            const filename = value.slice(1)
+            result.formDataEntries.push({
+              key,
+              value: filename,
+              type: 'file',
+              enabled: true,
+              file: { name: filename } as File,
+            })
+          } else {
+            // Text field
+            result.formDataEntries.push({
+              key,
+              value,
+              type: 'text',
+              enabled: true,
+            })
+          }
+        }
+      }
+      continue
+    }
+
     // URL: first token that is not a flag
     if (!token.startsWith('-') && !result.url) {
       // Accept as URL if it looks like one
@@ -116,6 +165,11 @@ export function parseCurlCommand(curl: string): {
   // Ensure at least one header entry for UI
   if (result.headers.length === 0) {
     result.headers.push({ key: '', value: '', enabled: true })
+  }
+
+  // Ensure at least one form entry for UI if bodyType is form-data
+  if (result.bodyType === 'form-data' && result.formDataEntries.length === 0) {
+    result.formDataEntries.push({ key: '', value: '', type: 'text', enabled: true })
   }
 
   return result.url ? result : null

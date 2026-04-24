@@ -145,8 +145,12 @@ export function RequestEditor() {
       setHeaders(parsed.headers)
       setBody(parsed.body)
       setBodyType(parsed.bodyType)
-      // 重置 formDataEntries，避免使用旧数据
-      setFormDataEntries([{ key: '', value: '', type: 'text', enabled: true }])
+      // 应用解析出的 formDataEntries，如果没有则重置
+      setFormDataEntries(
+        parsed.formDataEntries.length > 0
+          ? parsed.formDataEntries
+          : [{ key: '', value: '', type: 'text', enabled: true }]
+      )
     } else {
       // Parse JSON (existing logic)
       const err = parseAndApply(pasteText, { setMethod, setUrl, setHeaders, setBody, setBodyType })
