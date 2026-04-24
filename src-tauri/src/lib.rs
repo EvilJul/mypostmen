@@ -65,6 +65,8 @@ async fn http_proxy(req: HttpRequest) -> Result<HttpResponse, String> {
                 let mime_type = mime_guess::from_path(&file_name)
                     .first_or_octet_stream();
 
+                log::info!("上传文件: {} ({} bytes, MIME: {})", file_name, file_data.len(), mime_type);
+
                 // 创建 multipart part，设置正确的 MIME 类型
                 let part = reqwest::multipart::Part::bytes(file_data)
                     .file_name(file_name)
