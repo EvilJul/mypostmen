@@ -54,6 +54,7 @@ async function sendViaTauri(data: RequestData): Promise<ResponseData> {
 }
 
 async function sendViaProxy(data: RequestData, signal?: AbortSignal): Promise<ResponseData> {
+  console.log('[sendViaProxy] 开始发送请求', { method: data.method, url: data.url, bodyType: data.bodyType })
   const enabledHeaders = buildHeaders(data)
 
   let requestBody: BodyInit | undefined = undefined
@@ -73,6 +74,7 @@ async function sendViaProxy(data: RequestData, signal?: AbortSignal): Promise<Re
       requestBody = data.body
     }
   }
+  console.log('[sendViaProxy] 请求配置', { headers: enabledHeaders, bodyType: data.bodyType, hasBody: !!requestBody })
 
   const start = performance.now()
   let res: Response
@@ -85,6 +87,7 @@ async function sendViaProxy(data: RequestData, signal?: AbortSignal): Promise<Re
     })
   } catch (err) {
     // Network-level errors (CORS, offline, etc.)
+    console.error('[sendViaProxy] 网络错误', err)
     if (err instanceof Error) {
       if (err.name === 'AbortError') {
         throw err

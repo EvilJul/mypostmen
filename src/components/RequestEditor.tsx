@@ -139,6 +139,7 @@ export function RequestEditor() {
         setPasteError('无法解析 Curl 命令，请检查格式')
         return
       }
+      console.log('[Curl 解析结果]', parsed)
       setMethod(parsed.method)
       setUrl(parsed.url)
       setHeaders(parsed.headers)
@@ -227,6 +228,7 @@ export function RequestEditor() {
 
   const handleSend = async () => {
     if (!url.trim()) return
+    console.log('[发送请求]', { method, url, headers, body, bodyType, formDataEntries })
     const controller = new AbortController()
     setAbortController(controller)
     setLoading(true)
@@ -234,9 +236,11 @@ export function RequestEditor() {
     try {
       const response = await sendRequest({ method, url, headers, body, bodyType, formDataEntries }, controller.signal)
       if (controller.signal.aborted) return
+      console.log('[请求成功]', response)
       setResponse(response)
       addEntry({ method, url, headers, body, bodyType, formDataEntries }, response)
     } catch (err) {
+      console.error('[请求失败]', err)
       if (controller.signal.aborted) {
         setError('请求已取消')
       } else {
