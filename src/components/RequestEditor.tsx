@@ -546,7 +546,7 @@ function FormDataRow({
         className="shrink-0"
       />
       <Input
-        className="w-[140px] font-mono text-sm"
+        className="flex-1 min-w-[120px] font-mono text-sm"
         placeholder="字段名"
         value={entry.key}
         onChange={(e) => onUpdate({ key: e.target.value })}
@@ -573,13 +573,13 @@ function FormDataRow({
       {/* Value input */}
       {entry.type === 'text' ? (
         <Input
-          className="flex-1 font-mono text-sm"
+          className="flex-1 min-w-[120px] font-mono text-sm"
           placeholder="值"
           value={entry.value}
           onChange={(e) => onUpdate({ value: e.target.value })}
         />
       ) : (
-        <div className="flex-1 flex items-center gap-2">
+        <div className="flex-1 min-w-[200px] flex items-center gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -589,13 +589,13 @@ function FormDataRow({
           <Button
             variant="outline"
             size="sm"
-            className="text-xs"
+            className="text-xs shrink-0"
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload className="h-3 w-3 mr-1" /> 选择文件
           </Button>
           {entry.file && (
-            <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+            <span className="text-xs text-muted-foreground truncate" title={`${entry.file.name} (${formatFileSize(entry.file.size)})`}>
               {entry.file.name} ({formatFileSize(entry.file.size)})
             </span>
           )}
