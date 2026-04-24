@@ -1,5 +1,16 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use base64::{Engine as _, engine::general_purpose};
+
+#[derive(Debug, Deserialize)]
+struct FormDataEntry {
+    key: String,
+    value: String,
+    #[serde(rename = "type")]
+    entry_type: String,
+    #[serde(rename = "fileName")]
+    file_name: Option<String>,
+}
 
 #[derive(Debug, Deserialize)]
 struct HttpRequest {
@@ -7,6 +18,7 @@ struct HttpRequest {
     url: String,
     headers: HashMap<String, String>,
     body: Option<String>,
+    form_data: Option<Vec<FormDataEntry>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -36,8 +48,32 @@ async fn http_proxy(req: HttpRequest) -> Result<HttpResponse, String> {
         request_builder = request_builder.header(key, value);
     }
 
-    // 添加 body
-    if let Some(body) = req.body {
+    // 处理 body 或 form-data
+    if let Some(form_data) = req.form_data {
+        // 构建 multipart form
+        let mut form = reqwest::multipart::Form::new();
+
+        for entry in form_data {
+            if entry.entry_type == "file" {
+                // 解码 base64 文件数据
+                let file_data = general_purpose::STANDARD.decode(&entry.value)
+                    .map_err(|e| format!("解码文件数据失败: {}", e))?;
+
+                let file_name = entry.file_name.unwrap_or_else(|| "file".to_string());
+
+                // 创建 multipart part
+                let part = reqwest::multipart::Part::bytes(file_data)
+                    .file_name(file_name);
+
+                form = form.part(entry.key, part);
+            } else {
+                // 文本字段
+                form = form.text(entry.key, entry.value);
+            }
+        }
+
+        request_builder = request_builder.multipart(form);
+    } else if let Some(body) = req.body {
         request_builder = request_builder.body(body);
     }
 

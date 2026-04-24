@@ -14,14 +14,9 @@ function buildHeaders(data: RequestData): Record<string, string> {
 function buildBody(data: RequestData): string | undefined {
   if (['GET', 'HEAD'].includes(data.method)) return undefined
   if (data.bodyType === 'form-data') {
-    // Tauri proxy doesn't support FormData binary — fall back to text entries as URL-encoded
-    const params = new URLSearchParams()
-    for (const entry of data.formDataEntries) {
-      if (entry.enabled && entry.key.trim() && entry.type === 'text') {
-        params.append(entry.key.trim(), entry.value)
-      }
-    }
-    return params.toString() || undefined
+    // Tauri 端不支持直接传递 FormData，需要在 Rust 端处理
+    // 这里返回 undefined，实际的 form-data 会通过 formDataEntries 传递
+    return undefined
   }
   if (data.bodyType === 'raw' && data.body) return data.body
   return undefined
@@ -32,6 +27,42 @@ async function sendViaTauri(data: RequestData): Promise<ResponseData> {
   const headers = buildHeaders(data)
   const body = buildBody(data)
 
+  // 处理 form-data：将文件读取为 base64
+  let formDataEntries: Array<{ key: string; value: string; type: 'text' | 'file'; fileName?: string }> = []
+  if (data.bodyType === 'form-data') {
+    for (const entry of data.formDataEntries) {
+      if (!entry.enabled || !entry.key.trim()) continue
+
+      if (entry.type === 'file' && entry.file) {
+        // 读取文件为 base64
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => {
+            const result = reader.result as string
+            // 移除 data:xxx;base64, 前缀
+            const base64Data = result.split(',')[1]
+            resolve(base64Data)
+          }
+          reader.onerror = reject
+          reader.readAsDataURL(entry.file!)
+        })
+
+        formDataEntries.push({
+          key: entry.key.trim(),
+          value: base64,
+          type: 'file',
+          fileName: entry.file.name,
+        })
+      } else if (entry.type === 'text') {
+        formDataEntries.push({
+          key: entry.key.trim(),
+          value: entry.value,
+          type: 'text',
+        })
+      }
+    }
+  }
+
   const start = performance.now()
   const res = await invoke<{
     status: number
@@ -39,7 +70,13 @@ async function sendViaTauri(data: RequestData): Promise<ResponseData> {
     headers: Record<string, string>
     body: string
   }>('http_proxy', {
-    req: { method: data.method, url: data.url, headers, body },
+    req: {
+      method: data.method,
+      url: data.url,
+      headers,
+      body,
+      form_data: formDataEntries.length > 0 ? formDataEntries : undefined,
+    },
   })
   const duration = Math.round(performance.now() - start)
 
