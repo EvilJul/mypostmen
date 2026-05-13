@@ -1,6 +1,6 @@
 [package]
 name = "mypostmen"
-version = "0.2.2"
+version = "0.2.3"
 description = "A modern API testing tool"
 authors = ["EvilJul"]
 license = "MIT"

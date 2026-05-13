@@ -293,93 +293,98 @@ export function RequestEditor() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* URL bar */}
-      <div className="flex gap-2 p-3 border-b">
-        <Select value={method} onValueChange={(v) => v && setMethod(v)}>
-          <SelectTrigger className={`w-[120px] font-mono font-semibold ${METHOD_COLORS[method] || ''}`}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {METHODS.map((m) => (
-              <SelectItem key={m} value={m} className={`font-mono font-semibold ${METHOD_COLORS[m]}`}>
-                {m}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* URL bar - 两行布局 */}
+      <div className="p-3 border-b space-y-2">
+        {/* 第一行：Method + 操作按钮 */}
+        <div className="flex gap-2">
+          <Select value={method} onValueChange={(v) => v && setMethod(v)}>
+            <SelectTrigger className={`w-[120px] font-mono font-semibold ${METHOD_COLORS[method] || ''}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {METHODS.map((m) => (
+                <SelectItem key={m} value={m} className={`font-mono font-semibold ${METHOD_COLORS[m]}`}>
+                  {m}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {loading ? (
+            <Button variant="destructive" onClick={handleCancel}>
+              <StopCircle className="h-4 w-4" />
+              <span className="ml-1.5">取消</span>
+            </Button>
+          ) : (
+            <Button onClick={handleSend} disabled={!url.trim()}>
+              <Send className="h-4 w-4" />
+              <span className="ml-1.5">发送</span>
+            </Button>
+          )}
+          <Button variant="outline" size="icon" onClick={handleCopyCurl} disabled={!url.trim()} title="Copy as cURL">
+            {curlCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+          </Button>
+          <Dialog open={pasteOpen} onOpenChange={(open) => { setPasteOpen(open); if (!open) { setPasteText(''); setPasteError(null) } }}>
+            <DialogTrigger render={<Button variant="outline" size="icon" title="导入请求 (Curl/JSON)" />}>
+                <ClipboardPaste className="h-4 w-4" />
+            </DialogTrigger>
+            <DialogContent className="!max-w-[520px]">
+              <DialogHeader>
+                <DialogTitle>导入请求</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 overflow-hidden">
+                {/* Mode toggle */}
+                <div className="flex gap-1">
+                  <Button
+                    variant={pasteMode === 'curl' ? 'default' : 'outline'}
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => { setPasteMode('curl'); setPasteError(null) }}
+                  >
+                    Curl 命令
+                  </Button>
+                  <Button
+                    variant={pasteMode === 'json' ? 'default' : 'outline'}
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => { setPasteMode('json'); setPasteError(null) }}
+                  >
+                    JSON
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {pasteMode === 'curl'
+                    ? '粘贴 Curl 命令，自动解析 URL、Method、Headers、Body'
+                    : '支持两种格式：直接粘贴请求体（自动设为 POST），或完整描述 {method, url, headers, body}'}
+                </p>
+                <textarea
+                  className="w-full h-[200px] text-xs font-mono p-3 rounded-md border bg-muted/50 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder={pasteMode === 'curl'
+                    ? `curl 'http://api.example.com/v1/chat' \\\n  -H 'Content-Type: application/json' \\\n  -d '{"model": "gpt-4", "messages": [...]}'`
+                    : `// 格式一：请求体 JSON（自动 POST + Raw Body）\n{"model": "gpt-4", "messages": [...]}\n\n// 格式二：完整请求\n{"method": "POST", "url": "https://...", "headers": {...}, "body": {...}}`}
+                  value={pasteText}
+                  onChange={(e) => { setPasteText(e.target.value); setPasteError(null) }}
+                  autoFocus
+                />
+                {pasteError && (
+                  <p className="text-xs text-destructive">{pasteError}</p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setPasteOpen(false)}>取消</Button>
+                <Button onClick={handlePasteApply} disabled={!pasteText.trim()}>解析并应用</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+        
+        {/* 第二行：URL输入框独占一整行 */}
         <Input
-          className="flex-1 font-mono text-sm"
+          className="w-full font-mono text-sm"
           placeholder="https://api.example.com/endpoint"
           value={url}
           onChange={(e) => handleUrlChange(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
         />
-        {loading ? (
-          <Button variant="destructive" onClick={handleCancel}>
-            <StopCircle className="h-4 w-4" />
-            <span className="ml-1.5">取消</span>
-          </Button>
-        ) : (
-          <Button onClick={handleSend} disabled={!url.trim()}>
-            <Send className="h-4 w-4" />
-            <span className="ml-1.5">发送</span>
-          </Button>
-        )}
-        <Button variant="outline" size="icon" onClick={handleCopyCurl} disabled={!url.trim()} title="Copy as cURL">
-          {curlCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-        </Button>
-        <Dialog open={pasteOpen} onOpenChange={(open) => { setPasteOpen(open); if (!open) { setPasteText(''); setPasteError(null) } }}>
-          <DialogTrigger render={<Button variant="outline" size="icon" title="导入请求 (Curl/JSON)" />}>
-              <ClipboardPaste className="h-4 w-4" />
-          </DialogTrigger>
-          <DialogContent className="!max-w-[520px]">
-            <DialogHeader>
-              <DialogTitle>导入请求</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 overflow-hidden">
-              {/* Mode toggle */}
-              <div className="flex gap-1">
-                <Button
-                  variant={pasteMode === 'curl' ? 'default' : 'outline'}
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => { setPasteMode('curl'); setPasteError(null) }}
-                >
-                  Curl 命令
-                </Button>
-                <Button
-                  variant={pasteMode === 'json' ? 'default' : 'outline'}
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => { setPasteMode('json'); setPasteError(null) }}
-                >
-                  JSON
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {pasteMode === 'curl'
-                  ? '粘贴 Curl 命令，自动解析 URL、Method、Headers、Body'
-                  : '支持两种格式：直接粘贴请求体（自动设为 POST），或完整描述 {method, url, headers, body}'}
-              </p>
-              <textarea
-                className="w-full h-[200px] text-xs font-mono p-3 rounded-md border bg-muted/50 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                placeholder={pasteMode === 'curl'
-                  ? `curl 'http://api.example.com/v1/chat' \\\n  -H 'Content-Type: application/json' \\\n  -d '{"model": "gpt-4", "messages": [...]}'`
-                  : `// 格式一：请求体 JSON（自动 POST + Raw Body）\n{"model": "gpt-4", "messages": [...]}\n\n// 格式二：完整请求\n{"method": "POST", "url": "https://...", "headers": {...}, "body": {...}}`}
-                value={pasteText}
-                onChange={(e) => { setPasteText(e.target.value); setPasteError(null) }}
-                autoFocus
-              />
-              {pasteError && (
-                <p className="text-xs text-destructive">{pasteError}</p>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setPasteOpen(false)}>取消</Button>
-              <Button onClick={handlePasteApply} disabled={!pasteText.trim()}>解析并应用</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Tabs: Params / Headers / Body */}
