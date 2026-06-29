@@ -73,3 +73,7 @@ coverage/
 *.AppImage
 *.deb
 *.rpm
+
+# Tool caches & local config
+.codegraph/
+.claude/settings.local.json
